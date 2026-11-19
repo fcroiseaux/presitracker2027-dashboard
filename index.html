@@ -1,0 +1,1417 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PresiTracker2027 — Tableau de bord d'audience</title>
+<style>
+.viz-root{
+  color-scheme:light;
+  --bg:#f5f5f3; --surface-1:#fcfcfb; --border:#e4e3de; --grid:#ecebe6;
+  --text-primary:#0b0b0b; --text-secondary:#52514e; --text-muted:#7a7974;
+  --facebook:#2a78d6; --x:#eb6834; --bluesky:#1baf7a; --linkedin:#eda100;
+  --android:#008300; --ios:#6250d6; --neutral:#a8a79f;
+  --good:#0ca30c; --critical:#d03b3b; --accent:#2a78d6;
+}
+@media (prefers-color-scheme:dark){
+  :root:where(:not([data-theme="light"])) .viz-root{
+    color-scheme:dark;
+    --bg:#111110; --surface-1:#1a1a19; --border:#2e2e2b; --grid:#272725;
+    --text-primary:#f0efec; --text-secondary:#c3c2b7; --text-muted:#94938a;
+    --facebook:#3987e5; --x:#d95926; --bluesky:#199e70; --linkedin:#c98500;
+    --android:#0ca30c; --ios:#9085e9; --neutral:#5e5d58; --accent:#3987e5;
+  }
+}
+:root[data-theme="dark"] .viz-root{
+  color-scheme:dark;
+  --bg:#111110; --surface-1:#1a1a19; --border:#2e2e2b; --grid:#272725;
+  --text-primary:#f0efec; --text-secondary:#c3c2b7; --text-muted:#94938a;
+  --facebook:#3987e5; --x:#d95926; --bluesky:#199e70; --linkedin:#c98500;
+  --android:#0ca30c; --ios:#9085e9; --neutral:#5e5d58; --accent:#3987e5;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+.viz-root{background:var(--bg);color:var(--text-primary);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;min-height:100vh;padding:20px 24px 48px}
+.wrap{max-width:1280px;margin:0 auto}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;margin-bottom:18px}
+header h1{font-size:20px;margin:0;font-weight:650;letter-spacing:-.01em}
+header .sub{color:var(--text-secondary);font-size:13px}
+.spacer{flex:1}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface-1)}
+.seg button{border:0;background:transparent;color:var(--text-secondary);padding:6px 11px;font:inherit;font-size:13px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--border)}
+.seg button[aria-pressed="true"]{background:var(--text-primary);color:var(--surface-1)}
+.btn{border:1px solid var(--border);background:var(--surface-1);color:var(--text-primary);border-radius:8px;padding:6px 11px;font:inherit;font-size:13px;cursor:pointer}
+.btn:hover{border-color:var(--text-muted)}
+select.btn{padding:5px 8px}
+.banner{border:1px solid var(--border);border-left:4px solid var(--linkedin);background:var(--surface-1);padding:8px 12px;border-radius:8px;margin-bottom:14px;font-size:13px;color:var(--text-secondary)}
+.banner.err{border-left-color:var(--critical)}
+.banner:empty{display:none}
+.grid{display:grid;gap:14px}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-bottom:14px}
+.card{background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:16px 18px;min-width:0}
+.kpi .lbl{font-size:12.5px;color:var(--text-secondary)}
+.kpi .val{font-size:28px;font-weight:650;letter-spacing:-.02em;margin:4px 0 2px;font-variant-numeric:tabular-nums}
+.kpi .det{font-size:12.5px;color:var(--text-muted);font-variant-numeric:tabular-nums}
+.delta-up{color:var(--good)} .delta-down{color:var(--critical)}
+.progress{height:6px;border-radius:3px;background:var(--grid);margin-top:8px;overflow:hidden}
+.progress>i{display:block;height:100%;background:var(--accent);border-radius:3px}
+.two{grid-template-columns:minmax(0,3fr) minmax(0,2fr);margin-bottom:14px}
+.one{margin-bottom:14px}
+@media (max-width:900px){.two{grid-template-columns:1fr}}
+.card h2{font-size:15px;margin:0;font-weight:620}
+.card .hint{font-size:12.5px;color:var(--text-muted);margin:2px 0 10px}
+.card-head{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;justify-content:space-between}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--text-secondary);margin:4px 0 6px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.chart{position:relative;width:100%}
+.chart svg{display:block;width:100%;overflow:visible}
+.axis text{fill:var(--text-muted);font-size:11px;font-variant-numeric:tabular-nums}
+.gridline{stroke:var(--grid);stroke-width:1}
+.baseline{stroke:var(--border);stroke-width:1}
+.lbl-direct{font-size:11.5px;fill:var(--text-secondary);font-variant-numeric:tabular-nums}
+.evt{stroke:var(--text-muted);stroke-dasharray:3 3;stroke-width:1;opacity:.7}
+.evt-dot{fill:var(--text-muted)}
+#tip{position:fixed;pointer-events:none;z-index:50;background:var(--surface-1);color:var(--text-primary);border:1px solid var(--border);box-shadow:0 6px 24px rgba(0,0,0,.14);border-radius:8px;padding:8px 10px;font-size:12.5px;min-width:150px;opacity:0;transition:opacity .08s;font-variant-numeric:tabular-nums}
+#tip .t{font-weight:600;margin-bottom:4px}
+#tip .r{display:flex;align-items:center;gap:8px;justify-content:space-between}
+#tip .r b{font-weight:600}
+#tip .k{display:inline-flex;align-items:center;gap:6px;color:var(--text-secondary)}
+#tip .k i{width:8px;height:8px;border-radius:2px;display:inline-block}
+#tip .e{margin-top:5px;padding-top:5px;border-top:1px solid var(--border);color:var(--text-secondary)}
+table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--grid);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+#tb-camp td.txt{min-width:130px}
+td.txt,th.txt{text-align:left;white-space:normal}
+th{font-weight:600;color:var(--text-secondary);font-size:12px;cursor:default}
+th.sort{cursor:pointer;user-select:none}
+th.sort:hover{color:var(--text-primary)}
+tbody tr:hover{background:var(--grid)}
+.sw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:7px;vertical-align:0}
+.tablewrap{overflow-x:auto}
+.na{color:var(--text-muted)}
+.tag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid var(--border);color:var(--text-secondary);margin-left:6px}
+a{color:inherit}
+footer{color:var(--text-muted);font-size:12px;margin-top:18px}
+#drop{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);color:#fff;font-size:20px;z-index:60}
+</style>
+</head>
+<body>
+<div class="viz-root">
+<div class="wrap">
+  <header>
+    <div>
+      <h1>PresiTracker2027 · Audience &amp; rayonnement</h1>
+      <div class="sub" id="sub">—</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="controls">
+      <div class="seg" id="periods" role="group" aria-label="Période">
+        <button data-p="7">7 j</button><button data-p="30" aria-pressed="true">30 j</button><button data-p="90">90 j</button><button data-p="0">Tout</button>
+      </div>
+      <button class="btn" id="load">Charger un JSON…</button>
+      <input type="file" id="file" accept=".json,application/json" hidden>
+      <button class="btn" id="theme" title="Basculer clair / sombre">◐</button>
+    </div>
+  </header>
+
+  <div class="banner" id="banner"></div>
+
+  <section class="grid kpis" id="kpis"></section>
+
+  <section class="grid two">
+    <div class="card">
+      <div class="card-head">
+        <div><h2>Abonnés par réseau</h2><div class="hint" id="followers-hint">Lignes pointillées : événements</div></div>
+        <div class="seg" id="fmode"><button data-m="abs" aria-pressed="true">Total</button><button data-m="gain">Gain sur la période</button></div>
+      </div>
+      <div class="legend" id="leg-followers"></div>
+      <div class="chart" id="ch-followers"></div>
+    </div>
+    <div class="card">
+      <h2>Trafic du site par source</h2>
+      <div class="hint">Sessions sur la période — ce que chaque réseau rapporte vraiment</div>
+      <div class="chart" id="ch-sources"></div>
+    </div>
+  </section>
+
+  <section class="grid two">
+    <div class="card">
+      <h2>Téléchargements de l'app</h2>
+      <div class="hint" id="dl-hint">Par jour</div>
+      <div class="legend"><span><i style="background:var(--ios)"></i>iOS</span><span><i style="background:var(--android)"></i>Android</span></div>
+      <div class="chart" id="ch-downloads"></div>
+    </div>
+    <div class="card">
+      <h2>Entonnoir store</h2>
+      <div class="hint">Impressions store → pages produit → téléchargements (période)</div>
+      <div class="tablewrap"><table id="tb-funnel"></table></div>
+    </div>
+  </section>
+
+  <section class="card one">
+    <h2>Comparatif des réseaux</h2>
+    <div class="hint">Sur la période sélectionnée. « n.d. » = métrique non fournie par la plateforme.</div>
+    <div class="tablewrap"><table id="tb-networks"></table></div>
+  </section>
+
+  <section class="card one">
+    <div class="card-head">
+      <div><h2>Performance des posts</h2><div class="hint">Cliquer un en-tête pour trier</div></div>
+      <div class="controls">
+        <select class="btn" id="post-net"><option value="">Tous les réseaux</option></select>
+        <select class="btn" id="post-limit"><option value="15">Top 15</option><option value="50">Top 50</option><option value="9999">Tous</option></select>
+      </div>
+    </div>
+    <div class="tablewrap"><table id="tb-posts"></table></div>
+  </section>
+
+  <section class="grid two">
+    <div class="card">
+      <h2>Performance par thème</h2>
+      <div class="hint">Engagement moyen par post, tous réseaux (période)</div>
+      <div class="chart" id="ch-themes"></div>
+    </div>
+    <div class="card">
+      <h2>Campagnes payantes</h2>
+      <div class="hint">Campagnes qui recoupent la période</div>
+      <div class="tablewrap"><table id="tb-camp"></table></div>
+    </div>
+  </section>
+
+  <footer id="foot"></footer>
+</div>
+<div id="tip" role="tooltip"></div>
+<div id="drop">Déposer le fichier JSON ici</div>
+</div>
+
+<!-- ============================================================
+     DONNÉES — remplacez le contenu de cette balise par votre JSON
+     (format décrit dans presitracker_stats.json / version_schema 1.0).
+     Vous pouvez aussi utiliser « Charger un JSON… » ou glisser-déposer.
+     ============================================================ -->
+<script type="application/json" id="presitracker-data">
+
+{
+  "meta": {
+    "version_schema": "1.0",
+    "projet": "PresiTracker2027",
+    "site": "https://presitracker2027.fr",
+    "genere_le": "2026-11-19T08:52:00+01:00",
+    "fuseau": "Europe/Paris",
+    "note": "Données RÉELLES collectées le 19/11/2026 au matin. Sources : App Store Connect (téléchargements, impressions store, pages produit — jours UTC au 17/11, Apple publie avec 1-2 j de décalage), LinkedIn Analytics de la page (impressions quotidiennes au 17/11, par post au 18/11), profils X et Bluesky lus en direct le 19/11. Facebook : pas d'accès automatisé (publication manuelle), série laissée vide. Site web : aucun outil d'analytics connecté. Abonnés : relevés quotidiens depuis le 16/11 seulement. Objectifs repris tels quels du modèle fourni (à confirmer). Aucune donnée estimée."
+  },
+  "objectifs": {
+    "date_cible": "2027-04-10",
+    "abonnes_total": 10000,
+    "telechargements_total": 20000,
+    "visiteurs_mensuels": 30000
+  },
+  "reseaux": [
+    {
+      "id": "facebook",
+      "nom": "Facebook",
+      "compte": "PresiTracker2027",
+      "url": "https://www.facebook.com/presitracker2027",
+      "serie": []
+    },
+    {
+      "id": "x",
+      "nom": "X",
+      "compte": "@presitracker27",
+      "url": "https://x.com/presitracker27",
+      "serie": [
+        {
+          "date": "2026-11-10",
+          "abonnes": null,
+          "impressions": null,
+          "engagements": null,
+          "clics_lien": null,
+          "posts_publies": 2
+        },
+        {
+          "date": "2026-11-13",
+          "abonnes": null,
+          "impressions": null,
+          "engagements": null,
+          "clics_lien": null,
+          "posts_publies": 1
+        },
+        {
+          "date": "2026-11-14",
+          "abonnes": null,
+          "impressions": null,
+          "engagements": null,
+          "clics_lien": null,
+          "posts_publies": 1
+        },
+        {
+          "date": "2026-11-16",
+          "abonnes": 1,
+          "impressions": null,
+          "engagements": null,
+          "clics_lien": null,
+          "posts_publies": 2
+        },
+        {
+          "date": "2026-11-17",
+          "abonnes": 1,
+          "impressions": null,
+          "engagements": null,
+          "clics_lien": null,
+          "posts_publies": 5
+        },
+        {
+          "date": "2026-11-18",
+          "abonnes": 1,
+          "impressions": null,
+          "engagements": null,
+          "clics_lien": null,
+          "posts_publies": 2
+        },
+        {
+          "date": "2026-11-19",
+          "abonnes": 0,
+          "impressions": null,
+          "engagements": null,
+          "clics_lien": null,
+          "posts_publies": 3
+        }
+      ]
+    },
+    {
+      "id": "bluesky",
+      "nom": "Bluesky",
+      "compte": "@presitracker2027.bsky.social",
+      "url": "https://bsky.app/profile/presitracker2027.bsky.social",
+      "serie": [
+        {
+          "date": "2026-11-10",
+          "abonnes": null,
+          "impressions": null,
+          "engagements": null,
+          "clics_lien": null,
+          "posts_publies": 2
+        },
+        {
+          "date": "2026-11-13",
+          "abonnes": null,
+          "impressions": null,
+          "engagements": null,
+          "clics_lien": null,
+          "posts_publies": 1
+        },
+        {
+          "date": "2026-11-14",
+          "abonnes": null,
+          "impressions": null,
+          "engagements": null,
+          "clics_lien": null,
+          "posts_publies": 1
+        },
+        {
+          "date": "2026-11-16",
+          "abonnes": 2,
+          "impressions": null,
+          "engagements": null,
+          "clics_lien": null,
+          "posts_publies": 3
+        },
+        {
+          "date": "2026-11-17",
+          "abonnes": 2,
+          "impressions": null,
+          "engagements": null,
+          "clics_lien": null,
+          "posts_publies": 5
+        },
+        {
+          "date": "2026-11-18",
+          "abonnes": 3,
+          "impressions": null,
+          "engagements": null,
+          "clics_lien": null,
+          "posts_publies": 2
+        },
+        {
+          "date": "2026-11-19",
+          "abonnes": 2,
+          "impressions": null,
+          "engagements": null,
+          "clics_lien": null,
+          "posts_publies": 3
+        }
+      ]
+    },
+    {
+      "id": "linkedin",
+      "nom": "LinkedIn",
+      "compte": "PresiTracker2027",
+      "url": "https://www.linkedin.com/company/146955459/",
+      "serie": [
+        {
+          "date": "2026-11-09",
+          "abonnes": null,
+          "impressions": 0,
+          "engagements": null,
+          "clics_lien": null,
+          "posts_publies": null
+        },
+        {
+          "date": "2026-11-10",
+          "abonnes": null,
+          "impressions": 7,
+          "engagements": 1,
+          "clics_lien": null,
+          "posts_publies": 1
+        },
+        {
+          "date": "2026-11-11",
+          "abonnes": null,
+          "impressions": 3,
+          "engagements": null,
+          "clics_lien": null,
+          "posts_publies": null
+        },
+        {
+          "date": "2026-11-12",
+          "abonnes": null,
+          "impressions": 5,
+          "engagements": null,
+          "clics_lien": null,
+          "posts_publies": null
+        },
+        {
+          "date": "2026-11-13",
+          "abonnes": null,
+          "impressions": 75,
+          "engagements": 1,
+          "clics_lien": null,
+          "posts_publies": 1
+        },
+        {
+          "date": "2026-11-14",
+          "abonnes": null,
+          "impressions": 13,
+          "engagements": null,
+          "clics_lien": null,
+          "posts_publies": 1
+        },
+        {
+          "date": "2026-11-15",
+          "abonnes": null,
+          "impressions": 16,
+          "engagements": null,
+          "clics_lien": null,
+          "posts_publies": null
+        },
+        {
+          "date": "2026-11-16",
+          "abonnes": 3,
+          "impressions": 18,
+          "engagements": null,
+          "clics_lien": null,
+          "posts_publies": 2
+        },
+        {
+          "date": "2026-11-17",
+          "abonnes": 4,
+          "impressions": 28,
+          "engagements": 1,
+          "clics_lien": null,
+          "posts_publies": 1
+        },
+        {
+          "date": "2026-11-18",
+          "abonnes": 5,
+          "impressions": null,
+          "engagements": null,
+          "clics_lien": null,
+          "posts_publies": 2
+        },
+        {
+          "date": "2026-11-19",
+          "abonnes": 5,
+          "impressions": null,
+          "engagements": null,
+          "clics_lien": null,
+          "posts_publies": 3
+        }
+      ]
+    }
+  ],
+  "posts": [
+    {
+      "id": "x-0001",
+      "reseau": "x",
+      "date": "2026-11-10T17:51",
+      "titre": "PresiTracker2027 suit la présidentielle mesure par mesure",
+      "url": "https://x.com/presitracker27/status/2120197607460880815",
+      "type": "texte",
+      "theme": "Lancement",
+      "impressions": 7,
+      "reactions": null,
+      "commentaires": null,
+      "partages": null,
+      "clics_lien": null,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "x-0002",
+      "reseau": "x",
+      "date": "2026-11-10T17:51",
+      "titre": "Ce qui a changé dans les programmes, semaine du 2 au 8 novembre",
+      "url": "https://x.com/presitracker27/status/2120197718882844925",
+      "type": "texte",
+      "theme": "Récap hebdo",
+      "impressions": 9,
+      "reactions": null,
+      "commentaires": null,
+      "partages": null,
+      "clics_lien": null,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "x-0003",
+      "reseau": "x",
+      "date": "2026-11-13T21:04",
+      "titre": "Moins de bruit. Plus de faits.",
+      "url": "https://x.com/presitracker27/status/2121333455950639614",
+      "type": "texte",
+      "theme": "Promotion",
+      "impressions": 8,
+      "reactions": null,
+      "commentaires": null,
+      "partages": null,
+      "clics_lien": null,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "x-0004",
+      "reseau": "x",
+      "date": "2026-11-14T17:17",
+      "titre": "Bruno Retailleau : lettre à Édouard Philippe, Gabriel Attal et David Lisnard",
+      "url": "https://x.com/presitracker27/status/2121638667274072506",
+      "type": "texte",
+      "theme": "Mesures",
+      "impressions": 6,
+      "reactions": null,
+      "commentaires": null,
+      "partages": null,
+      "clics_lien": null,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "x-0005",
+      "reseau": "x",
+      "date": "2026-11-16T17:06",
+      "titre": "Teddy Riner a pris position sur la santé (13 nov.)",
+      "url": "https://x.com/presitracker27/status/2122360733812113800",
+      "type": "texte",
+      "theme": "Mesures",
+      "impressions": 4,
+      "reactions": null,
+      "commentaires": null,
+      "partages": null,
+      "clics_lien": null,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "x-0006",
+      "reseau": "x",
+      "date": "2026-11-16T22:42",
+      "titre": "Leurs promesses changent. Gardez le fil.",
+      "url": "https://x.com/presitracker27/status/2122445291471192298",
+      "type": "texte",
+      "theme": "Promotion",
+      "impressions": 4,
+      "reactions": null,
+      "commentaires": null,
+      "partages": null,
+      "clics_lien": null,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "x-0007",
+      "reseau": "x",
+      "date": "2026-11-17T12:52",
+      "titre": "Thread : quatre déclarations ajoutées (dont Bruno Le Maire) — 5 posts",
+      "url": "https://x.com/presitracker27/status/2122659236119200053",
+      "type": "texte",
+      "theme": "Mesures",
+      "impressions": 1,
+      "reactions": null,
+      "commentaires": 1,
+      "partages": null,
+      "clics_lien": null,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "x-0008",
+      "reseau": "x",
+      "date": "2026-11-18T08:18",
+      "titre": "Édouard Philippe : prise de position du 15 novembre",
+      "url": "https://x.com/presitracker27/status/2122952619979428228",
+      "type": "texte",
+      "theme": "Mesures",
+      "impressions": 3,
+      "reactions": null,
+      "commentaires": null,
+      "partages": null,
+      "clics_lien": null,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "x-0009",
+      "reseau": "x",
+      "date": "2026-11-18T08:24",
+      "titre": "Bruno Le Maire : mesure précisée",
+      "url": "https://x.com/presitracker27/status/2122954202481668561",
+      "type": "texte",
+      "theme": "Mesures",
+      "impressions": 2,
+      "reactions": null,
+      "commentaires": null,
+      "partages": null,
+      "clics_lien": null,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "x-0010",
+      "reseau": "x",
+      "date": "2026-11-19T08:09",
+      "titre": "Enquête ajoutée : Cluster17 pour Politico",
+      "url": "https://x.com/presitracker27/status/2123312603443405281",
+      "type": "texte",
+      "theme": "Sondages",
+      "impressions": 1,
+      "reactions": null,
+      "commentaires": null,
+      "partages": null,
+      "clics_lien": null,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "x-0011",
+      "reseau": "x",
+      "date": "2026-11-19T08:10",
+      "titre": "Marine Tondelier sur France 2 (déclaration)",
+      "url": "https://x.com/presitracker27/status/2123312917596536931",
+      "type": "texte",
+      "theme": "Déclarations",
+      "impressions": 1,
+      "reactions": null,
+      "commentaires": null,
+      "partages": null,
+      "clics_lien": null,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "x-0012",
+      "reseau": "x",
+      "date": "2026-11-19T08:11",
+      "titre": "Édouard Philippe : 30 000 places de prison",
+      "url": "https://x.com/presitracker27/status/2123313126707995067",
+      "type": "texte",
+      "theme": "Mesures",
+      "impressions": 2,
+      "reactions": null,
+      "commentaires": null,
+      "partages": null,
+      "clics_lien": null,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "bsky-0001",
+      "reseau": "bluesky",
+      "date": "2026-11-10T17:41",
+      "titre": "Ce qui a changé dans les programmes, semaine du 2 au 8 novembre",
+      "url": "https://bsky.app/profile/presitracker2027.bsky.social/post/3mzxuzxsjwe2q",
+      "type": "texte",
+      "theme": "Récap hebdo",
+      "impressions": null,
+      "reactions": 0,
+      "commentaires": 0,
+      "partages": 0,
+      "clics_lien": null,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "bsky-0002",
+      "reseau": "bluesky",
+      "date": "2026-11-10T19:23",
+      "titre": "PresiTracker2027 suit la présidentielle mesure par mesure",
+      "url": "https://bsky.app/profile/presitracker2027.bsky.social/post/3mzy2qqkfbm2f",
+      "type": "texte",
+      "theme": "Lancement",
+      "impressions": null,
+      "reactions": 0,
+      "commentaires": 0,
+      "partages": 0,
+      "clics_lien": null,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "bsky-0003",
+      "reseau": "bluesky",
+      "date": "2026-11-13T21:06",
+      "titre": "Que proposent les candidats à la présidentielle 2027 ?",
+      "url": "https://bsky.app/profile/presitracker2027.bsky.social/post/3n27rvluqts25",
+      "type": "texte",
+      "theme": "Promotion",
+      "impressions": null,
+      "reactions": 0,
+      "commentaires": 0,
+      "partages": 0,
+      "clics_lien": null,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "bsky-0004",
+      "reseau": "bluesky",
+      "date": "2026-11-14T17:18",
+      "titre": "Bruno Retailleau : lettre à Édouard Philippe, Gabriel Attal et David Lisnard",
+      "url": "https://bsky.app/profile/presitracker2027.bsky.social/post/3n2bvmiszqs2x",
+      "type": "texte",
+      "theme": "Mesures",
+      "impressions": null,
+      "reactions": 0,
+      "commentaires": 0,
+      "partages": 0,
+      "clics_lien": null,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "bsky-0005",
+      "reseau": "bluesky",
+      "date": "2026-11-16T08:00",
+      "titre": "Ce qui a changé dans les programmes, semaine du 9 au 15 novembre",
+      "url": "https://bsky.app/profile/presitracker2027.bsky.social/post/3n2fxdv6mne2o",
+      "type": "texte",
+      "theme": "Récap hebdo",
+      "impressions": null,
+      "reactions": 0,
+      "commentaires": 0,
+      "partages": 0,
+      "clics_lien": null,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "bsky-0006",
+      "reseau": "bluesky",
+      "date": "2026-11-16T17:02",
+      "titre": "Teddy Riner a pris position sur la santé (13 nov.)",
+      "url": "https://bsky.app/profile/presitracker2027.bsky.social/post/3n2gvnokarc2v",
+      "type": "texte",
+      "theme": "Mesures",
+      "impressions": null,
+      "reactions": 0,
+      "commentaires": 0,
+      "partages": 0,
+      "clics_lien": null,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "bsky-0007",
+      "reseau": "bluesky",
+      "date": "2026-11-16T22:48",
+      "titre": "Leurs promesses changent. Gardez le fil.",
+      "url": "https://bsky.app/profile/presitracker2027.bsky.social/post/3n2hiyzhcc22c",
+      "type": "texte",
+      "theme": "Promotion",
+      "impressions": null,
+      "reactions": 0,
+      "commentaires": 0,
+      "partages": 0,
+      "clics_lien": null,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "bsky-0008",
+      "reseau": "bluesky",
+      "date": "2026-11-17T09:08",
+      "titre": "Quatre déclarations ajoutées (thread)",
+      "url": "https://bsky.app/profile/presitracker2027.bsky.social/post/3n2ilmhze522z",
+      "type": "texte",
+      "theme": "Mesures",
+      "impressions": null,
+      "reactions": 0,
+      "commentaires": 1,
+      "partages": 0,
+      "clics_lien": null,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "bsky-0009",
+      "reseau": "bluesky",
+      "date": "2026-11-18T08:26",
+      "titre": "Édouard Philippe : prise de position du 15 novembre",
+      "url": "https://bsky.app/profile/presitracker2027.bsky.social/post/3n2kzqx36422u",
+      "type": "texte",
+      "theme": "Mesures",
+      "impressions": null,
+      "reactions": 0,
+      "commentaires": 0,
+      "partages": 0,
+      "clics_lien": null,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "bsky-0010",
+      "reseau": "bluesky",
+      "date": "2026-11-18T08:26",
+      "titre": "Bruno Le Maire : mesure précisée",
+      "url": "https://bsky.app/profile/presitracker2027.bsky.social/post/3n2kzrsysrs2u",
+      "type": "texte",
+      "theme": "Mesures",
+      "impressions": null,
+      "reactions": 0,
+      "commentaires": 0,
+      "partages": 0,
+      "clics_lien": null,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "bsky-0011",
+      "reseau": "bluesky",
+      "date": "2026-11-19T08:14",
+      "titre": "Enquête ajoutée : Cluster17 pour Politico",
+      "url": "https://bsky.app/profile/presitracker2027.bsky.social/post/3n2njjpjcx22v",
+      "type": "texte",
+      "theme": "Sondages",
+      "impressions": null,
+      "reactions": 0,
+      "commentaires": 0,
+      "partages": 0,
+      "clics_lien": null,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "bsky-0012",
+      "reseau": "bluesky",
+      "date": "2026-11-19T08:14",
+      "titre": "Marine Tondelier sur France 2 (déclaration)",
+      "url": "https://bsky.app/profile/presitracker2027.bsky.social/post/3n2njkuqutc2v",
+      "type": "texte",
+      "theme": "Déclarations",
+      "impressions": null,
+      "reactions": 0,
+      "commentaires": 0,
+      "partages": 0,
+      "clics_lien": null,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "bsky-0013",
+      "reseau": "bluesky",
+      "date": "2026-11-19T08:15",
+      "titre": "Édouard Philippe : 30 000 places de prison",
+      "url": "https://bsky.app/profile/presitracker2027.bsky.social/post/3n2njlpp2oc2v",
+      "type": "texte",
+      "theme": "Mesures",
+      "impressions": null,
+      "reactions": 0,
+      "commentaires": 0,
+      "partages": 0,
+      "clics_lien": null,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "li-0001",
+      "reseau": "linkedin",
+      "date": "2026-11-10",
+      "titre": "PresiTracker2027 est en ligne",
+      "url": "https://www.linkedin.com/feed/update/urn:li:activity:7525971008793772032/",
+      "type": "article",
+      "theme": "Lancement",
+      "impressions": 18,
+      "reactions": 0,
+      "commentaires": 0,
+      "partages": 1,
+      "clics_lien": 1,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "li-0002",
+      "reseau": "linkedin",
+      "date": "2026-11-13",
+      "titre": "Moins de bruit. Plus de faits.",
+      "url": "https://www.linkedin.com/feed/update/urn:li:activity:7526998289188057088/",
+      "type": "image",
+      "theme": "Promotion",
+      "impressions": 140,
+      "reactions": 2,
+      "commentaires": 1,
+      "partages": 2,
+      "clics_lien": 12,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "li-0003",
+      "reseau": "linkedin",
+      "date": "2026-11-14",
+      "titre": "Partage d'article PresiTracker2027",
+      "url": "https://www.linkedin.com/feed/update/urn:li:activity:7527404962100838401/",
+      "type": "article",
+      "theme": "Promotion",
+      "impressions": 16,
+      "reactions": 0,
+      "commentaires": 0,
+      "partages": 0,
+      "clics_lien": 1,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "li-0004",
+      "reseau": "linkedin",
+      "date": "2026-11-16",
+      "titre": "Teddy Riner a pris position sur la santé (13 nov.)",
+      "url": "https://www.linkedin.com/feed/update/urn:li:activity:7528129025513316353/",
+      "type": "texte",
+      "theme": "Mesures",
+      "impressions": 7,
+      "reactions": 0,
+      "commentaires": 0,
+      "partages": 0,
+      "clics_lien": 0,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "li-0005",
+      "reseau": "linkedin",
+      "date": "2026-11-16",
+      "titre": "Leurs promesses changent. Gardez le fil.",
+      "url": "https://www.linkedin.com/feed/update/urn:li:activity:7528211350821494784/",
+      "type": "image",
+      "theme": "Promotion",
+      "impressions": 3,
+      "reactions": 0,
+      "commentaires": 0,
+      "partages": 0,
+      "clics_lien": 0,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "li-0006",
+      "reseau": "linkedin",
+      "date": "2026-11-17",
+      "titre": "Programme de Marine Le Pen : 89 mesures sourcées",
+      "url": "https://www.linkedin.com/feed/update/urn:li:activity:7528425280508604417/",
+      "type": "article",
+      "theme": "Mesures",
+      "impressions": 9,
+      "reactions": 0,
+      "commentaires": 0,
+      "partages": 0,
+      "clics_lien": 0,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "li-0007",
+      "reseau": "linkedin",
+      "date": "2026-11-18",
+      "titre": "Édouard Philippe : prise de position du 15 novembre",
+      "url": "https://www.linkedin.com/feed/update/urn:li:activity:7528720892026286081/",
+      "type": "article",
+      "theme": "Mesures",
+      "impressions": 68,
+      "reactions": 0,
+      "commentaires": 0,
+      "partages": 1,
+      "clics_lien": 1,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "li-0008",
+      "reseau": "linkedin",
+      "date": "2026-11-18",
+      "titre": "Bruno Le Maire : mesure précisée",
+      "url": "https://www.linkedin.com/feed/update/urn:li:activity:7528721057520947200/",
+      "type": "article",
+      "theme": "Mesures",
+      "impressions": 1,
+      "reactions": 0,
+      "commentaires": 0,
+      "partages": 0,
+      "clics_lien": 0,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "li-0009",
+      "reseau": "linkedin",
+      "date": "2026-11-19",
+      "titre": "Sondage Cluster17 pour Politico",
+      "url": "https://www.linkedin.com/feed/update/urn:li:activity:7529080179671982080/",
+      "type": "article",
+      "theme": "Sondages",
+      "impressions": null,
+      "reactions": null,
+      "commentaires": null,
+      "partages": null,
+      "clics_lien": null,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "li-0010",
+      "reseau": "linkedin",
+      "date": "2026-11-19",
+      "titre": "Marine Tondelier sur France 2 (déclaration)",
+      "url": "https://www.linkedin.com/feed/update/urn:li:activity:7529080301621370880/",
+      "type": "article",
+      "theme": "Déclarations",
+      "impressions": null,
+      "reactions": null,
+      "commentaires": null,
+      "partages": null,
+      "clics_lien": null,
+      "sponsorise": false,
+      "depense_eur": 0
+    },
+    {
+      "id": "li-0011",
+      "reseau": "linkedin",
+      "date": "2026-11-19",
+      "titre": "Édouard Philippe : 30 000 places de prison",
+      "url": "https://www.linkedin.com/feed/update/urn:li:activity:7529080393837219841/",
+      "type": "article",
+      "theme": "Mesures",
+      "impressions": null,
+      "reactions": null,
+      "commentaires": null,
+      "partages": null,
+      "clics_lien": null,
+      "sponsorise": false,
+      "depense_eur": 0
+    }
+  ],
+  "app": {
+    "ios": {
+      "store": "App Store",
+      "url": "https://apps.apple.com/fr/app/presitracker2027/id6824577557",
+      "note_moyenne": 5.0,
+      "nb_avis": 4,
+      "serie": [
+        {
+          "date": "2026-11-09",
+          "telechargements": 5,
+          "impressions_store": 13,
+          "pages_produit": 8
+        },
+        {
+          "date": "2026-11-10",
+          "telechargements": 5,
+          "impressions_store": 18,
+          "pages_produit": 6
+        },
+        {
+          "date": "2026-11-11",
+          "telechargements": 14,
+          "impressions_store": 62,
+          "pages_produit": 31
+        },
+        {
+          "date": "2026-11-12",
+          "telechargements": 4,
+          "impressions_store": 43,
+          "pages_produit": 6
+        },
+        {
+          "date": "2026-11-13",
+          "telechargements": 8,
+          "impressions_store": 40,
+          "pages_produit": 11
+        },
+        {
+          "date": "2026-11-14",
+          "telechargements": 8,
+          "impressions_store": 34,
+          "pages_produit": 6
+        },
+        {
+          "date": "2026-11-15",
+          "telechargements": 9,
+          "impressions_store": 59,
+          "pages_produit": 13
+        },
+        {
+          "date": "2026-11-16",
+          "telechargements": 5,
+          "impressions_store": 23,
+          "pages_produit": 6
+        },
+        {
+          "date": "2026-11-17",
+          "telechargements": 7,
+          "impressions_store": 32,
+          "pages_produit": 10
+        }
+      ]
+    }
+  },
+  "site": {
+    "outil": null,
+    "serie": []
+  },
+  "campagnes": [],
+  "evenements": [
+    {
+      "date": "2026-11-09",
+      "libelle": "Sortie de l'app iOS sur l'App Store"
+    },
+    {
+      "date": "2026-11-10",
+      "libelle": "Lancement des comptes X, Bluesky et LinkedIn"
+    },
+    {
+      "date": "2026-11-17",
+      "libelle": "Début de la publication quotidienne des propositions"
+    },
+    {
+      "date": "2026-11-18",
+      "libelle": "Version 1.2.2 de l'app iOS"
+    }
+  ]
+}
+
+</script>
+
+<script>
+(() => {
+'use strict';
+const NF = new Intl.NumberFormat('fr-FR');
+const PF = new Intl.NumberFormat('fr-FR',{style:'percent',maximumFractionDigits:1});
+const EF = new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:2});
+const DF = new Intl.DateTimeFormat('fr-FR',{day:'numeric',month:'short'});
+const DFL = new Intl.DateTimeFormat('fr-FR',{weekday:'short',day:'numeric',month:'long',year:'numeric'});
+const NET_COLORS = ['--facebook','--x','--bluesky','--linkedin']; // ordre fixe des teintes
+const KNOWN = {facebook:'--facebook',x:'--x',bluesky:'--bluesky',linkedin:'--linkedin'};
+const fmt = v => v==null||isNaN(v) ? '<span class="na">n.d.</span>' : NF.format(Math.round(v));
+const pct = v => v==null||!isFinite(v) ? '<span class="na">n.d.</span>' : PF.format(v);
+const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $ = s => document.querySelector(s);
+const cssv = n => getComputedStyle($('.viz-root')).getPropertyValue(n).trim();
+const parseD = s => { const [y,m,d]=s.slice(0,10).split('-').map(Number); return new Date(y,m-1,d); };
+const key = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const addDays = (d,n) => { const x=new Date(d); x.setDate(x.getDate()+n); return x; };
+const sum = (a,f) => a.reduce((s,x)=>{const v=f(x); return s+(v==null||isNaN(v)?0:v);},0);
+const anyNum = (a,f) => a.some(x=>{const v=f(x); return v!=null && !isNaN(v);});
+
+let DATA=null, period=30, fmode='abs', postSort={k:'engagement',dir:-1};
+let netColor = {};
+
+/* ---------- chargement & validation ---------- */
+function validate(d){
+  const w=[];
+  if(!d || typeof d!=='object') throw new Error('Le fichier n\'est pas un objet JSON.');
+  if(!d.meta) w.push('« meta » absent.');
+  else if(d.meta.version_schema && !String(d.meta.version_schema).startsWith('1.')) w.push('version_schema '+d.meta.version_schema+' : ce modèle attend 1.x.');
+  if(!Array.isArray(d.reseaux)) { d.reseaux=[]; w.push('« reseaux » absent : aucune donnée réseau.'); }
+  d.reseaux.forEach(r=>{ if(!Array.isArray(r.serie)) {r.serie=[]; w.push('Réseau '+r.id+' sans « serie ».');} r.serie.sort((a,b)=>a.date<b.date?-1:1); });
+  d.posts = Array.isArray(d.posts)?d.posts:[];
+  d.app = d.app||{};
+  ['ios','android'].forEach(p=>{ if(d.app[p]&&!Array.isArray(d.app[p].serie)) d.app[p].serie=[]; });
+  d.site = d.site||{serie:[]}; d.site.serie=d.site.serie||[];
+  d.campagnes = d.campagnes||[]; d.evenements=d.evenements||[]; d.objectifs=d.objectifs||{};
+  if(d.meta && d.meta.note) w.push(esc(d.meta.note));
+  return w;
+}
+function load(d, origin){
+  const ban=$('#banner'); ban.className='banner'; ban.innerHTML='';
+  try{
+    const w=validate(d); DATA=d;
+    netColor={}; let i=0;
+    d.reseaux.forEach(r=>{ netColor[r.id]= KNOWN[r.id] || NET_COLORS[i%NET_COLORS.length]; i++; });
+    if(w.length) ban.innerHTML = w.join('<br>');
+    const sel=$('#post-net'); sel.innerHTML='<option value="">Tous les réseaux</option>'+d.reseaux.map(r=>`<option value="${esc(r.id)}">${esc(r.nom||r.id)}</option>`).join('');
+    render();
+  }catch(e){ ban.className='banner err'; ban.textContent='Impossible de lire les données ('+origin+') : '+e.message; }
+}
+function readFile(f){ const fr=new FileReader(); fr.onload=()=>{ try{ load(JSON.parse(fr.result), f.name);}catch(e){ const b=$('#banner'); b.className='banner err'; b.textContent='JSON invalide : '+e.message; } }; fr.readAsText(f); }
+
+/* ---------- période ---------- */
+function allDates(){
+  const s=new Set();
+  DATA.reseaux.forEach(r=>r.serie.forEach(x=>s.add(x.date.slice(0,10))));
+  ['ios','android'].forEach(p=>DATA.app[p]&&DATA.app[p].serie.forEach(x=>s.add(x.date.slice(0,10))));
+  DATA.site.serie.forEach(x=>s.add(x.date.slice(0,10)));
+  return [...s].sort();
+}
+function range(){
+  const ds=allDates(); if(!ds.length) return null;
+  const end=parseD(ds[ds.length-1]); const first=parseD(ds[0]);
+  let start = period ? addDays(end,-(period-1)) : first;
+  if(start<first) start=first;
+  const days=[]; for(let d=new Date(start); d<=end; d=addDays(d,1)) days.push(key(d));
+  return {start:key(start), end:key(end), days, prev:key(addDays(start,-1))};
+}
+const inR = (R,x) => x.date.slice(0,10)>=R.start && x.date.slice(0,10)<=R.end;
+const lastOnOrBefore = (serie,k,f) => { let v=null; for(const x of serie){ if(x.date.slice(0,10)<=k && x[f]!=null) v=x[f]; else if(x.date.slice(0,10)>k) break; } return v; };
+
+/* ---------- tooltip ---------- */
+const tip=$('#tip');
+function showTip(html,ev){ tip.innerHTML=html; tip.style.opacity=1; moveTip(ev); }
+function moveTip(ev){ const pad=14, w=tip.offsetWidth, h=tip.offsetHeight; let x=ev.clientX+pad, y=ev.clientY+pad; if(x+w>innerWidth-8) x=ev.clientX-w-pad; if(y+h>innerHeight-8) y=ev.clientY-h-pad; tip.style.left=x+'px'; tip.style.top=y+'px'; }
+function hideTip(){ tip.style.opacity=0; }
+const row=(color,label,val)=>`<div class="r"><span class="k">${color?`<i style="background:var(${color})"></i>`:''}${esc(label)}</span><b>${val}</b></div>`;
+
+/* ---------- utilitaires SVG ---------- */
+const NS='http://www.w3.org/2000/svg';
+function el(tag,attrs,parent){ const e=document.createElementNS(NS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); if(parent) parent.appendChild(e); return e; }
+function niceMax(v){ if(v<=0) return 1; const p=Math.pow(10,Math.floor(Math.log10(v))); const n=v/p; return (n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10)*p; }
+function topRounded(x,y,w,h,r){ r=Math.min(r,w/2,h); if(h<=0) return ''; return `M${x},${y+h}V${y+r}Q${x},${y} ${x+r},${y}H${x+w-r}Q${x+w},${y} ${x+w},${y+r}V${y+h}Z`; }
+function rightRounded(x,y,w,h,r){ r=Math.min(r,h/2,w); if(w<=0) return ''; return `M${x},${y}H${x+w-r}Q${x+w},${y} ${x+w},${y+r}V${y+h-r}Q${x+w},${y+h} ${x+w-r},${y+h}H${x}Z`; }
+function yAxis(svg,M,W,H,max,fmtFn){
+  const g=el('g',{class:'axis'},svg);
+  for(let i=0;i<=4;i++){ const v=max*i/4, y=M.t+H-(H*i/4);
+    el('line',{x1:M.l,x2:M.l+W,y1:y,y2:y,class:i?'gridline':'baseline'},g);
+    const t=el('text',{x:M.l-8,y:y+4,'text-anchor':'end'},g); t.textContent=fmtFn(v); }
+}
+function xAxis(svg,M,W,H,days,xOf){
+  const g=el('g',{class:'axis'},svg); const n=days.length; const step=Math.max(1,Math.ceil(n/Math.max(2,Math.floor(W/80))));
+  for(let i=0;i<n;i+=step){ const t=el('text',{x:xOf(i),y:M.t+H+18,'text-anchor':'middle'},g); t.textContent=DF.format(parseD(days[i])); }
+}
+const compact = v => v>=10000 ? NF.format(Math.round(v/1000))+' k' : NF.format(Math.round(v));
+
+/* ---------- graphique : abonnés (lignes) ---------- */
+function chartFollowers(R){
+  const box=$('#ch-followers'); box.innerHTML='';
+  const nets=DATA.reseaux;
+  $('#leg-followers').innerHTML = nets.map(r=>`<span><i style="background:var(${netColor[r.id]})"></i>${esc(r.nom||r.id)}</span>`).join('');
+  const series=nets.map(r=>{
+    const base = fmode==='gain' ? (lastOnOrBefore(r.serie,R.prev,'abonnes') ?? lastOnOrBefore(r.serie,R.start,'abonnes') ?? 0) : 0;
+    return {r, vals:R.days.map(k=>{ const v=lastOnOrBefore(r.serie,k,'abonnes'); return v==null?null:v-base; })};
+  });
+  const Wt=box.clientWidth||600, Ht=280, M={t:12,r:110,b:28,l:48}, W=Wt-M.l-M.r, H=Ht-M.t-M.b;
+  const vmax=Math.max(1,...series.flatMap(s=>s.vals.filter(v=>v!=null)));
+  const vmin=Math.min(0,...series.flatMap(s=>s.vals.filter(v=>v!=null)));
+  const max=niceMax(vmax), min=vmin<0?-niceMax(-vmin):0;
+  const svg=el('svg',{viewBox:`0 0 ${Wt} ${Ht}`,height:Ht,role:'img','aria-label':'Évolution des abonnés par réseau'},box);
+  const n=R.days.length, xOf=i=> M.l + (n<=1?W/2:W*i/(n-1)), yOf=v=> M.t+H-(H*(v-min)/(max-min));
+  const g=el('g',{class:'axis'},svg);
+  for(let i=0;i<=4;i++){ const v=min+(max-min)*i/4, y=yOf(v); el('line',{x1:M.l,x2:M.l+W,y1:y,y2:y,class:(v===0)?'baseline':'gridline'},g); const t=el('text',{x:M.l-8,y:y+4,'text-anchor':'end'},g); t.textContent=compact(v); }
+  xAxis(svg,M,W,H,R.days,xOf);
+  // événements
+  const evts=DATA.evenements.filter(e=>e.date>=R.start&&e.date<=R.end);
+  evts.forEach(e=>{ const i=R.days.indexOf(e.date); if(i<0) return; el('line',{x1:xOf(i),x2:xOf(i),y1:M.t,y2:M.t+H,class:'evt'},svg); el('circle',{cx:xOf(i),cy:M.t,r:3,class:'evt-dot'},svg); });
+  // lignes
+  series.forEach(s=>{ let d='',pen=false; s.vals.forEach((v,i)=>{ if(v==null){pen=false;return;} d+=(pen?'L':'M')+xOf(i).toFixed(1)+','+yOf(v).toFixed(1); pen=true; });
+    el('path',{d,fill:'none',stroke:`var(${netColor[s.r.id]})`,'stroke-width':2,'stroke-linejoin':'round','stroke-linecap':'round'},svg); });
+  // étiquettes directes en bout de ligne (anti-collision)
+  const labs=series.map(s=>{ let i=s.vals.length-1; while(i>=0&&s.vals[i]==null) i--; return i<0?null:{s,i,y:yOf(s.vals[i]),v:s.vals[i]}; }).filter(Boolean).sort((a,b)=>a.y-b.y);
+  for(let k=1;k<labs.length;k++) if(labs[k].y-labs[k-1].y<15) labs[k].y=labs[k-1].y+15;
+  labs.forEach(l=>{ el('circle',{cx:xOf(l.i),cy:yOf(l.v),r:3.5,fill:`var(${netColor[l.s.r.id]})`,stroke:'var(--surface-1)','stroke-width':2},svg);
+    const t=el('text',{x:M.l+W+10,y:l.y+4,class:'lbl-direct'},svg); t.textContent=(l.s.r.nom||l.s.r.id)+' '+(fmode==='gain'&&l.v>0?'+':'')+NF.format(l.v); });
+  // survol
+  const cross=el('line',{y1:M.t,y2:M.t+H,stroke:'var(--text-muted)','stroke-width':1,opacity:0},svg);
+  const dots=series.map(s=>el('circle',{r:4,fill:`var(${netColor[s.r.id]})`,stroke:'var(--surface-1)','stroke-width':2,opacity:0},svg));
+  const hit=el('rect',{x:M.l,y:M.t,width:W,height:H,fill:'transparent'},svg);
+  hit.addEventListener('mousemove',ev=>{
+    const rc=svg.getBoundingClientRect(), sx=(ev.clientX-rc.left)*Wt/rc.width; const i=Math.max(0,Math.min(n-1,Math.round((sx-M.l)/(W/Math.max(1,n-1)))));
+    cross.setAttribute('x1',xOf(i)); cross.setAttribute('x2',xOf(i)); cross.setAttribute('opacity',.6);
+    series.forEach((s,j)=>{ const v=s.vals[i]; if(v==null){dots[j].setAttribute('opacity',0);return;} dots[j].setAttribute('cx',xOf(i)); dots[j].setAttribute('cy',yOf(v)); dots[j].setAttribute('opacity',1); });
+    const k=R.days[i]; let h=`<div class="t">${DFL.format(parseD(k))}</div>`;
+    [...series].sort((a,b)=>(b.vals[i]??-1e9)-(a.vals[i]??-1e9)).forEach(s=>{ const v=s.vals[i]; h+=row(netColor[s.r.id],s.r.nom||s.r.id, v==null?'n.d.':(fmode==='gain'&&v>0?'+':'')+NF.format(v)); });
+    const tot=sum(series,s=>s.vals[i]); h+=row(null,'Total',(fmode==='gain'&&tot>0?'+':'')+NF.format(tot));
+    const e=evts.filter(e=>e.date===k); if(e.length) h+=`<div class="e">● ${e.map(x=>esc(x.libelle)).join('<br>● ')}</div>`;
+    showTip(h,ev);
+  });
+  hit.addEventListener('mouseleave',()=>{ hideTip(); cross.setAttribute('opacity',0); dots.forEach(d=>d.setAttribute('opacity',0)); });
+}
+
+/* ---------- graphique : téléchargements (barres empilées) ---------- */
+function chartDownloads(R){
+  const box=$('#ch-downloads'); box.innerHTML='';
+  const weekly=R.days.length>45;
+  $('#dl-hint').textContent = weekly ? 'Par semaine (lundi)' : 'Par jour';
+  const buckets=[]; const idx={};
+  R.days.forEach(k=>{ let b=k; if(weekly){ const d=parseD(k); const dow=(d.getDay()+6)%7; b=key(addDays(d,-dow)); } if(!(b in idx)){ idx[b]=buckets.length; buckets.push({k:b,ios:0,android:0}); } });
+  ['ios','android'].forEach(p=>{ const s=DATA.app[p]; if(!s) return; s.serie.filter(x=>inR(R,x)).forEach(x=>{ let b=x.date.slice(0,10); if(weekly){ const d=parseD(b); b=key(addDays(d,-((d.getDay()+6)%7))); } if(b in idx) buckets[idx[b]][p]+=x.telechargements||0; }); });
+  const Wt=box.clientWidth||600, Ht=240, M={t:12,r:12,b:28,l:44}, W=Wt-M.l-M.r, H=Ht-M.t-M.b;
+  const max=niceMax(Math.max(1,...buckets.map(b=>b.ios+b.android)));
+  const svg=el('svg',{viewBox:`0 0 ${Wt} ${Ht}`,height:Ht,role:'img','aria-label':'Téléchargements iOS et Android'},box);
+  yAxis(svg,M,W,H,max,compact);
+  const n=buckets.length, slot=W/n, bw=Math.max(2,Math.min(28,slot*0.7)), yOf=v=>M.t+H-H*v/max;
+  const xOf=i=>M.l+slot*i+slot/2;
+  xAxis(svg,M,W,H,buckets.map(b=>b.k),xOf);
+  buckets.forEach((b,i)=>{
+    const x=xOf(i)-bw/2, hA=H*b.android/max, hI=H*b.ios/max, gap=(hA>0&&hI>0)?2:0;
+    // segment du bas : Android ; haut : iOS (coins arrondis sur l'extrémité)
+    if(hA>0){ const top = hI>0; el('path',{d: top? `M${x},${M.t+H}V${M.t+H-hA}H${x+bw}V${M.t+H}Z` : topRounded(x,M.t+H-hA,bw,hA,4), fill:'var(--android)'},svg); }
+    if(hI>0){ el('path',{d:topRounded(x,M.t+H-hA-gap-hI,bw,hI,4),fill:'var(--ios)'},svg); }
+    const hit=el('rect',{x:M.l+slot*i,y:M.t,width:slot,height:H,fill:'transparent'},svg);
+    hit.addEventListener('mousemove',ev=>showTip(`<div class="t">${weekly?'Semaine du ':''}${DFL.format(parseD(b.k))}</div>`+row('--ios','iOS',NF.format(b.ios))+row('--android','Android',NF.format(b.android))+row(null,'Total',NF.format(b.ios+b.android)),ev));
+    hit.addEventListener('mouseleave',hideTip);
+  });
+}
+
+/* ---------- graphique : barres horizontales ---------- */
+function hbars(box,items,opts){
+  box.innerHTML='';
+  if(!items.length){ box.innerHTML='<div class="hint">Aucune donnée sur la période.</div>'; return; }
+  const Wt=box.clientWidth||400, bh=18, gapY=12, M={t:4,r:70,b:4,l:opts.labelW||110};
+  const Ht=M.t+M.b+items.length*(bh+gapY)-gapY, W=Wt-M.l-M.r;
+  const max=Math.max(1,...items.map(i=>i.v));
+  const svg=el('svg',{viewBox:`0 0 ${Wt} ${Ht}`,height:Ht,role:'img','aria-label':opts.aria},box);
+  items.forEach((it,i)=>{
+    const y=M.t+i*(bh+gapY), w=W*it.v/max;
+    const t=el('text',{x:M.l-10,y:y+bh/2+4,'text-anchor':'end',class:'lbl-direct'},svg); t.textContent=it.label;
+    el('rect',{x:M.l,y,width:W,height:bh,fill:'var(--grid)',rx:4,opacity:.5},svg);
+    if(w>0) el('path',{d:rightRounded(M.l,y,w,bh,4),fill:`var(${it.color||'--neutral'})`},svg);
+    const v=el('text',{x:M.l+w+8,y:y+bh/2+4,class:'lbl-direct'},svg); v.textContent=opts.valFmt(it.v);
+    const hit=el('rect',{x:0,y:y-gapY/2,width:Wt,height:bh+gapY,fill:'transparent'},svg);
+    hit.addEventListener('mousemove',ev=>showTip(`<div class="t">${esc(it.label)}</div>`+(it.tip||row(it.color,opts.unit,opts.valFmt(it.v))),ev));
+    hit.addEventListener('mouseleave',hideTip);
+  });
+}
+const SRC_LABEL={recherche:'Recherche',direct:'Direct',autre:'Autres'};
+function chartSources(R){
+  const agg={}; DATA.site.serie.filter(x=>inR(R,x)).forEach(x=>{ for(const k in (x.sources||{})) agg[k]=(agg[k]||0)+(x.sources[k]||0); });
+  const tot=Object.values(agg).reduce((a,b)=>a+b,0);
+  const items=Object.entries(agg).map(([k,v])=>{ const r=DATA.reseaux.find(r=>r.id===k); return {label:r?(r.nom||k):(SRC_LABEL[k]||k),v,color:r?netColor[k]:'--neutral',
+     tip:row(r?netColor[k]:'--neutral','Sessions',NF.format(v))+row(null,'Part du trafic',tot?PF.format(v/tot):'n.d.')}; }).sort((a,b)=>b.v-a.v);
+  hbars($('#ch-sources'),items,{aria:'Sessions du site par source',valFmt:v=>NF.format(v),unit:'Sessions',labelW:90});
+}
+function chartThemes(R){
+  const g={}; DATA.posts.filter(p=>inR(R,p)).forEach(p=>{ const t=p.theme||'Sans thème'; g[t]=g[t]||{n:0,e:0}; g[t].n++; g[t].e+=engOf(p); });
+  const items=Object.entries(g).map(([t,o])=>({label:t,v:o.n?o.e/o.n:0,color:'--accent',tip:row('--accent','Engagement moyen / post',NF.format(Math.round(o.e/o.n)))+row(null,'Posts',NF.format(o.n))})).sort((a,b)=>b.v-a.v);
+  hbars($('#ch-themes'),items,{aria:'Engagement moyen par thème',valFmt:v=>NF.format(Math.round(v)),unit:'Engagement moyen',labelW:150});
+}
+
+/* ---------- KPI ---------- */
+function deltaHTML(cur,prev,suffix=''){
+  if(prev==null||cur==null) return ''; const d=cur-prev; if(!d) return '<span>= vs période préc.</span>';
+  const p = prev ? ' ('+(d>0?'+':'')+PF.format(d/prev)+')' : '';
+  return `<span class="${d>0?'delta-up':'delta-down'}">${d>0?'▲ +':'▼ '}${NF.format(d)}${suffix}${p}</span> vs période préc.`;
+}
+function prevRange(R){ const n=R.days.length; const e=addDays(parseD(R.start),-1); const s=addDays(e,-(n-1)); return {start:key(s),end:key(e)}; }
+function kpis(R){
+  const P=prevRange(R), O=DATA.objectifs;
+  const totalAt=k=>sum(DATA.reseaux,r=>lastOnOrBefore(r.serie,k,'abonnes'));
+  const fNow=totalAt(R.end), fStart=totalAt(R.prev), fPrevStart=totalAt(key(addDays(parseD(P.start),-1)));
+  const gain=fNow-fStart, gainPrev=fStart-fPrevStart;
+  const dl=(Rg)=>sum(['ios','android'],p=>DATA.app[p]?sum(DATA.app[p].serie.filter(x=>inR(Rg,x)),x=>x.telechargements):0);
+  const dlTot=sum(['ios','android'],p=>DATA.app[p]?sum(DATA.app[p].serie.filter(x=>x.date.slice(0,10)<=R.end),x=>x.telechargements):0);
+  const dlNow=dl(R), dlPrev=dl(P);
+  const ios=DATA.app.ios?sum(DATA.app.ios.serie.filter(x=>inR(R,x)),x=>x.telechargements):0;
+  const vis=Rg=>sum(DATA.site.serie.filter(x=>inR(Rg,x)),x=>x.visiteurs);
+  const visNow=vis(R), visPrev=vis(P);
+  const netRows=DATA.reseaux.map(r=>r.serie.filter(x=>inR(R,x)));
+  const imp=sum(netRows,rs=>anyNum(rs,x=>x.impressions)?sum(rs,x=>x.impressions):null);
+  const engWithImp=sum(netRows,rs=>anyNum(rs,x=>x.impressions)?sum(rs,x=>x.engagements):null);
+  const er=imp?engWithImp/imp:null;
+  const spent=sum(DATA.campagnes.filter(c=>c.fin>=R.start&&c.debut<=R.end),c=>c.depense_eur);
+  const inst=sum(DATA.campagnes.filter(c=>c.fin>=R.start&&c.debut<=R.end),c=>c.installations);
+  const prog=(v,t)=> t? `<div class="progress" title="${PF.format(v/t)} de l'objectif"><i style="width:${Math.min(100,100*v/t)}%"></i></div><div class="det">${PF.format(v/t)} de l'objectif ${NF.format(t)}${O.date_cible?' au '+DF.format(parseD(O.date_cible)):''}</div>`:'';
+  const notes = DATA.app.ios||DATA.app.android ? ['ios','android'].filter(p=>DATA.app[p]&&DATA.app[p].note_moyenne!=null).map(p=>`${p==='ios'?'iOS':'Android'} ${String(DATA.app[p].note_moyenne).replace('.',',')}★ (${NF.format(DATA.app[p].nb_avis||0)})`).join(' · ') : '';
+  $('#kpis').innerHTML=`
+  <div class="card kpi"><div class="lbl">Abonnés cumulés (4 réseaux)</div><div class="val">${NF.format(fNow)}</div><div class="det">+${NF.format(gain)} sur la période · ${deltaHTML(gain,gainPrev)}</div>${prog(fNow,O.abonnes_total)}</div>
+  <div class="card kpi"><div class="lbl">Téléchargements app (période)</div><div class="val">${NF.format(dlNow)}</div><div class="det">iOS ${NF.format(ios)} · Android ${NF.format(dlNow-ios)} · ${deltaHTML(dlNow,dlPrev)}</div>${prog(dlTot,O.telechargements_total)}</div>
+  <div class="card kpi"><div class="lbl">Visiteurs du site (période)</div><div class="val">${NF.format(visNow)}</div><div class="det">${deltaHTML(visNow,visPrev)}</div></div>
+  <div class="card kpi"><div class="lbl">Taux d'engagement</div><div class="val">${er==null?'n.d.':PF.format(er)}</div><div class="det">engagements / impressions, réseaux qui publient les impressions</div></div>
+  <div class="card kpi"><div class="lbl">Dépense pub · coût par installation</div><div class="val">${EF.format(spent)}</div><div class="det">${inst?EF.format(spent/inst)+' / installation · '+NF.format(inst)+' installations':'aucune installation attribuée'}</div></div>
+  ${notes?`<div class="card kpi"><div class="lbl">Notes stores</div><div class="val" style="font-size:20px">${notes}</div><div class="det">note moyenne (nombre d'avis)</div></div>`:''}`;
+}
+
+/* ---------- tableaux ---------- */
+function tblNetworks(R){
+  const srcAgg={}; DATA.site.serie.filter(x=>inR(R,x)).forEach(x=>{ for(const k in (x.sources||{})) srcAgg[k]=(srcAgg[k]||0)+x.sources[k]; });
+  const rows=DATA.reseaux.map(r=>{ const s=r.serie.filter(x=>inR(R,x)); const now=lastOnOrBefore(r.serie,R.end,'abonnes'), st=lastOnOrBefore(r.serie,R.prev,'abonnes');
+    const hasImp=anyNum(s,x=>x.impressions); const imp=hasImp?sum(s,x=>x.impressions):null, eng=sum(s,x=>x.engagements), posts=sum(s,x=>x.posts_publies), clics=anyNum(s,x=>x.clics_lien)?sum(s,x=>x.clics_lien):null, ses=srcAgg[r.id]??null;
+    return {r,now,gain:(now!=null&&st!=null)?now-st:null,growth:(now!=null&&st)?(now-st)/st:null,imp,eng,er:imp?eng/imp:null,posts,clics,ses,sesPost:(ses!=null&&posts)?ses/posts:null}; });
+  $('#tb-networks').innerHTML=`<thead><tr><th>Réseau</th><th>Abonnés</th><th>Gain</th><th>Croissance</th><th>Posts</th><th>Impressions</th><th>Engagements</th><th>Taux eng.</th><th>Clics lien</th><th>Sessions site</th><th>Sessions / post</th></tr></thead><tbody>`+
+   rows.map(o=>`<tr><td><span class="sw" style="background:var(${netColor[o.r.id]})"></span>${o.r.url?`<a href="${esc(o.r.url)}" target="_blank" rel="noopener">${esc(o.r.nom||o.r.id)}</a>`:esc(o.r.nom||o.r.id)} <span class="tag">${esc(o.r.compte||'')}</span></td><td>${fmt(o.now)}</td><td>${o.gain==null?fmt(null):(o.gain>0?'+':'')+NF.format(o.gain)}</td><td>${pct(o.growth)}</td><td>${fmt(o.posts)}</td><td>${fmt(o.imp)}</td><td>${fmt(o.eng)}</td><td>${pct(o.er)}</td><td>${fmt(o.clics)}</td><td>${fmt(o.ses)}</td><td>${o.sesPost==null?fmt(null):NF.format(Math.round(o.sesPost*10)/10)}</td></tr>`).join('')+'</tbody>';
+}
+const engOf=p=>(p.reactions||0)+(p.commentaires||0)+(p.partages||0)+(p.clics_lien||0);
+function tblPosts(R){
+  const net=$('#post-net').value, lim=+$('#post-limit').value;
+  let ps=DATA.posts.filter(p=>inR(R,p)&&(!net||p.reseau===net)).map(p=>({...p,engagement:engOf(p),taux:p.impressions?engOf(p)/p.impressions:null}));
+  const k=postSort.k, d=postSort.dir;
+  ps.sort((a,b)=>{ const va=a[k], vb=b[k]; if(va==null&&vb==null) return 0; if(va==null) return 1; if(vb==null) return -1; return (va>vb?1:va<vb?-1:0)*d; });
+  const total=ps.length; ps=ps.slice(0,lim);
+  const cols=[['date','Date',1],['reseau','Réseau',1],['titre','Post',1],['theme','Thème',1],['impressions','Impr.',0],['reactions','Réactions',0],['commentaires','Comm.',0],['partages','Partages',0],['clics_lien','Clics',0],['engagement','Engag.',0],['taux','Taux',0]];
+  $('#tb-posts').innerHTML='<thead><tr>'+cols.map(([c,l,t])=>`<th class="sort${t?' txt':''}" data-k="${c}">${l}${postSort.k===c?(postSort.dir>0?' ▲':' ▼'):''}</th>`).join('')+'</tr></thead><tbody>'+
+   (ps.length?ps.map(p=>{ const r=DATA.reseaux.find(r=>r.id===p.reseau); return `<tr><td class="txt">${DF.format(parseD(p.date))} ${esc(p.date.slice(11,16))}</td><td class="txt"><span class="sw" style="background:var(${netColor[p.reseau]||'--neutral'})"></span>${esc(r?r.nom:p.reseau)}</td><td class="txt">${p.url?`<a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.titre||p.id)}</a>`:esc(p.titre||p.id)}${p.type?`<span class="tag">${esc(p.type)}</span>`:''}${p.sponsorise?`<span class="tag">sponsorisé ${EF.format(p.depense_eur||0)}</span>`:''}</td><td class="txt">${esc(p.theme||'')}</td><td>${fmt(p.impressions)}</td><td>${fmt(p.reactions)}</td><td>${fmt(p.commentaires)}</td><td>${fmt(p.partages)}</td><td>${fmt(p.clics_lien)}</td><td><b>${fmt(p.engagement)}</b></td><td>${pct(p.taux)}</td></tr>`;}).join(''):'<tr><td colspan="11" class="txt na">Aucun post sur la période.</td></tr>')+
+   `</tbody><tfoot><tr><td colspan="11" class="txt na">${NF.format(Math.min(lim,total))} sur ${NF.format(total)} posts</td></tr></tfoot>`;
+  document.querySelectorAll('#tb-posts th.sort').forEach(th=>th.onclick=()=>{ const c=th.dataset.k; postSort = postSort.k===c?{k:c,dir:-postSort.dir}:{k:c,dir:-1}; tblPosts(R); });
+}
+function tblFunnel(R){
+  const rows=['ios','android'].filter(p=>DATA.app[p]).map(p=>{ const s=DATA.app[p].serie.filter(x=>inR(R,x)); const im=anyNum(s,x=>x.impressions_store)?sum(s,x=>x.impressions_store):null, pp=anyNum(s,x=>x.pages_produit)?sum(s,x=>x.pages_produit):null, dl=sum(s,x=>x.telechargements);
+    return {p, label:DATA.app[p].store||p, im,pp,dl, c1:(im&&pp!=null)?pp/im:null, c2:pp?dl/pp:null}; });
+  $('#tb-funnel').innerHTML='<thead><tr><th>Store</th><th>Impressions</th><th>Pages produit</th><th>Téléch.</th><th>Conv. page</th></tr></thead><tbody>'+
+    rows.map(o=>`<tr><td><span class="sw" style="background:var(--${o.p})"></span>${DATA.app[o.p].url?`<a href="${esc(DATA.app[o.p].url)}" target="_blank" rel="noopener">${esc(o.label)}</a>`:esc(o.label)}</td><td>${fmt(o.im)}</td><td>${fmt(o.pp)}</td><td>${fmt(o.dl)}</td><td>${pct(o.c2)}</td></tr>`).join('')+'</tbody>';
+}
+function tblCamp(R){
+  const cs=DATA.campagnes.filter(c=>c.fin>=R.start&&c.debut<=R.end);
+  $('#tb-camp').innerHTML='<thead><tr><th>Campagne</th><th>Dépense</th><th>Impr.</th><th>Clics</th><th>CPC</th><th>Install.</th><th>CPI</th></tr></thead><tbody>'+
+   (cs.length?cs.map(c=>`<tr><td class="txt"><span class="sw" style="background:var(${netColor[c.reseau]||'--neutral'})"></span>${esc(c.nom)}<div class="na" style="font-size:11.5px">${DF.format(parseD(c.debut))} → ${DF.format(parseD(c.fin))}</div></td><td>${EF.format(c.depense_eur||0)}</td><td>${fmt(c.impressions)}</td><td>${fmt(c.clics)}</td><td>${c.clics?EF.format(c.depense_eur/c.clics):fmt(null)}</td><td>${fmt(c.installations)}</td><td>${c.installations?EF.format(c.depense_eur/c.installations):fmt(null)}</td></tr>`).join(''):'<tr><td colspan="7" class="txt na">Aucune campagne sur la période.</td></tr>')+'</tbody>';
+}
+
+/* ---------- rendu global ---------- */
+function render(){
+  if(!DATA) return; const R=range();
+  if(!R){ $('#banner').textContent='Aucune donnée datée.'; return; }
+  const m=DATA.meta||{};
+  $('#sub').innerHTML=`Du ${DFL.format(parseD(R.start))} au ${DFL.format(parseD(R.end))} · ${R.days.length} jours${m.genere_le?' · données générées le '+esc(new Date(m.genere_le).toLocaleString('fr-FR')):''}`;
+  kpis(R); chartFollowers(R); chartSources(R); chartDownloads(R); tblFunnel(R); tblNetworks(R); tblPosts(R); chartThemes(R); tblCamp(R);
+  $('#foot').innerHTML=`${esc(m.projet||'PresiTracker2027')} · schéma ${esc(m.version_schema||'?')}${m.site?` · <a href="${esc(m.site)}" target="_blank" rel="noopener">${esc(m.site)}</a>`:''}`;
+}
+
+/* ---------- interactions ---------- */
+document.querySelectorAll('#periods button').forEach(b=>b.onclick=()=>{ period=+b.dataset.p; document.querySelectorAll('#periods button').forEach(x=>x.setAttribute('aria-pressed',x===b)); render(); });
+document.querySelectorAll('#fmode button').forEach(b=>b.onclick=()=>{ fmode=b.dataset.m; document.querySelectorAll('#fmode button').forEach(x=>x.setAttribute('aria-pressed',x===b)); chartFollowers(range()); });
+$('#post-net').onchange=$('#post-limit').onchange=()=>tblPosts(range());
+$('#load').onclick=()=>$('#file').click();
+$('#file').onchange=e=>{ if(e.target.files[0]) readFile(e.target.files[0]); };
+const drop=$('#drop');
+addEventListener('dragover',e=>{e.preventDefault(); drop.style.display='flex';});
+drop.addEventListener('dragleave',()=>drop.style.display='none');
+addEventListener('drop',e=>{e.preventDefault(); drop.style.display='none'; const f=e.dataTransfer.files[0]; if(f) readFile(f);});
+$('#theme').onclick=()=>{ const r=document.documentElement; const dark = r.dataset.theme ? r.dataset.theme==='dark' : matchMedia('(prefers-color-scheme: dark)').matches; r.dataset.theme = dark?'light':'dark'; try{localStorage.setItem('pt-theme',r.dataset.theme);}catch(e){} render(); };
+try{ const t=localStorage.getItem('pt-theme'); if(t) document.documentElement.dataset.theme=t; }catch(e){}
+let rt; addEventListener('resize',()=>{ clearTimeout(rt); rt=setTimeout(render,120); });
+
+/* ---------- démarrage : JSON intégré, sinon data.json à côté du fichier ---------- */
+const raw=$('#presitracker-data').textContent.trim();
+if(raw && !raw.startsWith('/*__')){ try{ load(JSON.parse(raw),'données intégrées'); }catch(e){ $('#banner').className='banner err'; $('#banner').textContent='JSON intégré invalide : '+e.message; } }
+else fetch('presitracker_stats.json').then(r=>r.json()).then(d=>load(d,'presitracker_stats.json')).catch(()=>{ $('#banner').textContent='Aucune donnée : collez votre JSON dans la balise <script id="presitracker-data">, ou cliquez sur « Charger un JSON… ».'; });
+})();
+</script>
+</body>
+</html>
